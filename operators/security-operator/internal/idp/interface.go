@@ -52,11 +52,14 @@ type Provider interface {
 	UpdateClient(ctx context.Context, registrationURI, registrationToken string, metadata dcr.ClientMetadata) (dcr.ClientInformation, error)
 	DeleteClient(ctx context.Context, clientID, registrationURI, registrationToken string) error
 
+	GetClientByName(ctx context.Context, clientName string) (*clientreg.ClientInformation, error)
+
 	// Realm (org) Management (provider-specific)
 	CreateTenant(ctx context.Context, config TenantConfig) (created bool, err error)
 	UpdateTenant(ctx context.Context, tenantID string, config TenantConfig) error
 	DeleteTenant(ctx context.Context, tenantID string) error
 	TenantExists(ctx context.Context, tenantID string) (bool, error)
+	EnsureTenant(ctx context.Context, tenantID string, config TenantConfig) error
 
 	// Token Management
 	GetInitialAccessToken(ctx context.Context, tenantID string) (string, error)

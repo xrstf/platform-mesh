@@ -50,7 +50,7 @@ var modelGeneratorCmd = &cobra.Command{
 		ctx, _, shutdown := platformeshcontext.StartContext(log, defaultCfg, defaultCfg.ShutdownTimeout)
 		defer shutdown()
 
-		restCfg, err := getKubeconfigFromPath(generatorCfg.KCP.Kubeconfig)
+		restCfg, err := getKubeconfigFromPath(cfg.KCP.Kubeconfig)
 		if err != nil {
 			log.Error().Err(err).Msg("unable to get kcp kubeconfig")
 			return err
@@ -89,7 +89,7 @@ var modelGeneratorCmd = &cobra.Command{
 			return fmt.Errorf("scheme should not be nil")
 		}
 
-		provider, err := pathaware.New(restCfg, generatorCfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
+		provider, err := pathaware.New(restCfg, cfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
 			Scheme: mgrOpts.Scheme,
 		})
 		if err != nil {
@@ -105,7 +105,7 @@ var modelGeneratorCmd = &cobra.Command{
 
 		providerLister := iclient.NewProviderLister(provider.Provider.Provider)
 
-		if err := controller.NewAPIBindingReconciler(log, mgr, providerLister, &generatorCfg).
+		if err := controller.NewAPIBindingReconciler(log, mgr, providerLister, &cfg).
 			SetupWithManager(mgr, defaultCfg); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Resource")
 			return err

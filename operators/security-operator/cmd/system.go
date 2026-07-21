@@ -51,7 +51,7 @@ var systemCmd = &cobra.Command{
 		ctx, _, shutdown := platformeshcontext.StartContext(log, defaultCfg, defaultCfg.ShutdownTimeout)
 		defer shutdown()
 
-		restCfg, err := getKubeconfigFromPath(systemCfg.KCP.Kubeconfig)
+		restCfg, err := getKubeconfigFromPath(cfg.KCP.Kubeconfig)
 		if err != nil {
 			log.Error().Err(err).Msg("unable to get kcp kubeconfig")
 			return err
@@ -82,7 +82,7 @@ var systemCmd = &cobra.Command{
 			opts.LeaderElectionConfig = inClusterCfg
 		}
 
-		systemProvider, err := pathaware.New(restCfg, systemCfg.APIExportEndpointSlices.SystemPlatformMeshIO, apiexport.Options{
+		systemProvider, err := pathaware.New(restCfg, cfg.APIExportEndpointSlices.SystemPlatformMeshIO, apiexport.Options{
 			Scheme: scheme,
 		})
 		if err != nil {
@@ -90,7 +90,7 @@ var systemCmd = &cobra.Command{
 			return err
 		}
 
-		coreProvider, err := pathaware.New(restCfg, systemCfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
+		coreProvider, err := pathaware.New(restCfg, cfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
 			Scheme: scheme,
 		})
 		if err != nil {
@@ -112,7 +112,7 @@ var systemCmd = &cobra.Command{
 			return err
 		}
 
-		conn, err := grpc.NewClient(systemCfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(cfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Error().Err(err).Msg("unable to create grpc client")
 			return err
@@ -123,13 +123,13 @@ var systemCmd = &cobra.Command{
 		storeIDGetter := fga.NewCachingStoreIDGetter(
 			ctx,
 			fgaClient,
-			systemCfg.FGA.StoreIDCacheTTL,
+			cfg.FGA.StoreIDCacheTTL,
 			log,
 		)
 
 		kcpClientGetter := iclient.NewManagerKCPClientGetter(mgr, coreProvider.Provider.Provider)
 
-		idpReconciler, err := controller.NewIdentityProviderConfigurationReconciler(ctx, mgr, kcpClientGetter, &systemCfg, log)
+		idpReconciler, err := controller.NewIdentityProviderConfigurationReconciler(ctx, mgr, kcpClientGetter, &cfg, log)
 		if err != nil {
 			log.Error().Err(err).Str("controller", "identityprovider").Msg("unable to create reconciler")
 			return err
@@ -141,7 +141,7 @@ var systemCmd = &cobra.Command{
 
 		providerLister := iclient.NewProviderLister(coreProvider.Provider.Provider)
 
-		if err = controller.NewAPIExportPolicyReconciler(log, fgaClient, mgr, providerLister, &systemCfg, storeIDGetter, kcpClientGetter).SetupWithManager(mgr, defaultCfg); err != nil {
+		if err = controller.NewAPIExportPolicyReconciler(log, fgaClient, mgr, providerLister, &cfg, storeIDGetter, kcpClientGetter).SetupWithManager(mgr, defaultCfg); err != nil {
 			log.Error().Err(err).Str("controller", "apiexportpolicy").Msg("unable to create controller")
 			return err
 		}

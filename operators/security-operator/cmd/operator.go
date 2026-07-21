@@ -69,7 +69,7 @@ var operatorCmd = &cobra.Command{
 		ctx, _, shutdown := platformeshcontext.StartContext(log, defaultCfg, defaultCfg.ShutdownTimeout)
 		defer shutdown()
 
-		restCfg, err := getKubeconfigFromPath(operatorCfg.KCP.Kubeconfig)
+		restCfg, err := getKubeconfigFromPath(cfg.KCP.Kubeconfig)
 		if err != nil {
 			log.Error().Err(err).Msg("unable to get kcp kubeconfig")
 			return err
@@ -94,8 +94,8 @@ var operatorCmd = &cobra.Command{
 					c.NextProtos = []string{"http/1.1"}
 				},
 			},
-			CertDir: operatorCfg.Webhooks.CertDir,
-			Port:    operatorCfg.Webhooks.Port,
+			CertDir: cfg.Webhooks.CertDir,
+			Port:    cfg.Webhooks.Port,
 		})
 
 		mgrOpts := ctrl.Options{
@@ -129,7 +129,7 @@ var operatorCmd = &cobra.Command{
 			return fmt.Errorf("scheme should not be nil")
 		}
 
-		provider, err := pathaware.New(restCfg, operatorCfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
+		provider, err := pathaware.New(restCfg, cfg.APIExportEndpointSlices.CorePlatformMeshIO, apiexport.Options{
 			Scheme: mgrOpts.Scheme,
 		})
 		if err != nil {
@@ -143,7 +143,7 @@ var operatorCmd = &cobra.Command{
 			return err
 		}
 
-		conn, err := grpc.NewClient(operatorCfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(cfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Error().Err(err).Msg("unable to create grpc client")
 			return err
@@ -154,7 +154,7 @@ var operatorCmd = &cobra.Command{
 		storeIDGetter := fga2.NewCachingStoreIDGetter(
 			ctx,
 			fga,
-			operatorCfg.FGA.StoreIDCacheTTL,
+			cfg.FGA.StoreIDCacheTTL,
 			log,
 		)
 
@@ -167,7 +167,7 @@ var operatorCmd = &cobra.Command{
 		}
 		providerLister := iclient.NewProviderLister(provider.Provider.Provider)
 
-		if err = controller.NewStoreReconciler(ctx, log, fga, mgr, &operatorCfg, providerLister).
+		if err = controller.NewStoreReconciler(ctx, log, fga, mgr, &cfg, providerLister).
 			SetupWithManager(mgr, defaultCfg); err != nil {
 			log.Error().Err(err).Str("controller", "store").Msg("unable to create controller")
 			return err
@@ -182,7 +182,7 @@ var operatorCmd = &cobra.Command{
 		kcpClientGetter := iclient.NewManagerKCPClientGetter(mgr, provider.Provider.Provider)
 		kcpClientGetterWithConfig := iclient.NewConfigSchemeKCPClientGetter(restCfg, scheme)
 
-		inviteReconciler, err := controller.NewInviteReconciler(ctx, mgr, &operatorCfg, log, kcpClientGetter)
+		inviteReconciler, err := controller.NewInviteReconciler(ctx, mgr, &cfg, log, kcpClientGetter)
 		if err != nil {
 			log.Error().Err(err).Str("controller", "invite").Msg("unable to create reconciler")
 			return err
@@ -191,7 +191,7 @@ var operatorCmd = &cobra.Command{
 			log.Error().Err(err).Str("controller", "invite").Msg("unable to create controller")
 			return err
 		}
-		orgReconciler, err := controller.NewOrgLogicalClusterController(log, kcpClientGetterWithConfig, operatorCfg, runtimeClient, mgr, controller.ControllerOptions{
+		orgReconciler, err := controller.NewOrgLogicalClusterController(log, kcpClientGetterWithConfig, cfg, runtimeClient, mgr, controller.ControllerOptions{
 			Name: "OrgLogicalClusterReconciler",
 		})
 		if err != nil {
@@ -200,13 +200,13 @@ var operatorCmd = &cobra.Command{
 		}
 		if err = orgReconciler.SetupWithManager(mgr, defaultCfg,
 			predicates.LogicalClusterIsAccountTypeOrg(),
-			predicates.HasInitializerPredicate(operatorCfg.InitializerName()),
+			predicates.HasInitializerPredicate(cfg.InitializerName()),
 		); err != nil {
 			log.Error().Err(err).Str("controller", "logicalcluster").Msg("unable to create controller")
 			return err
 		}
 
-		alcReconciler, err := controller.NewAccountLogicalClusterController(log, operatorCfg, fga, storeIDGetter, mgr, kcpClientGetterWithConfig, controller.ControllerOptions{
+		alcReconciler, err := controller.NewAccountLogicalClusterController(log, cfg, fga, storeIDGetter, mgr, kcpClientGetterWithConfig, controller.ControllerOptions{
 			Name: "AccountLogicalClusterReconciler",
 		})
 		if err != nil {
@@ -215,7 +215,7 @@ var operatorCmd = &cobra.Command{
 		}
 		if err = alcReconciler.SetupWithManager(mgr, defaultCfg,
 			predicate.Not(predicates.LogicalClusterIsAccountTypeOrg()),
-			predicates.HasInitializerPredicate(operatorCfg.InitializerName()),
+			predicates.HasInitializerPredicate(cfg.InitializerName()),
 		); err != nil {
 			log.Error().Err(err).Str("controller", "accounttypelogicalcluster").Msg("unable to create controller")
 			return err
@@ -225,9 +225,9 @@ var operatorCmd = &cobra.Command{
 			return err
 		}
 
-		if operatorCfg.Webhooks.Enabled {
+		if cfg.Webhooks.Enabled {
 			log.Info().Msg("validating webhooks are enabled")
-			if err := internalwebhook.SetupIdentityProviderConfigurationValidatingWebhookWithManager(ctx, mgr.GetLocalManager(), &operatorCfg); err != nil {
+			if err := internalwebhook.SetupIdentityProviderConfigurationValidatingWebhookWithManager(ctx, mgr.GetLocalManager(), &cfg); err != nil {
 				log.Error().Err(err).Str("webhook", "IdentityProviderConfiguration").Msg("unable to create webhook")
 				return err
 			}

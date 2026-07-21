@@ -17,7 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -31,6 +33,12 @@ const (
 	providerSeparator  = "#"
 	OrgsClusterPath    = "root:orgs"
 )
+
+type Auth0Config struct {
+	BaseURL      string
+	ClientID     string
+	ClientSecret string
+}
 
 type KeycloakConfig struct {
 	BaseURL      string
@@ -63,6 +71,18 @@ type KCPConfig struct {
 	Kubeconfig string
 }
 
+type IDProvider string
+
+const (
+	KeycloakIDProvider IDProvider = "keycloak"
+	Auth0IDProvider    IDProvider = "auth0"
+)
+
+var allIDProviders = []IDProvider{
+	KeycloakIDProvider,
+	Auth0IDProvider,
+}
+
 type IDPConfig struct {
 	RealmDenyList []string
 
@@ -81,6 +101,8 @@ type IDPConfig struct {
 
 	AccessTokenLifespan int
 	RegistrationAllowed bool
+
+	Implementation string
 }
 
 type APIExportEndpointSlices struct {
@@ -107,6 +129,7 @@ type Config struct {
 	AllowMemberTuplesEnabled         bool
 	IDP                              IDPConfig
 	Keycloak                         KeycloakConfig
+	Auth0                            Auth0Config
 	Initializer                      InitializerConfig
 	Webhooks                         WebhooksConfig
 	AdditionalAudiences              []string
@@ -154,6 +177,14 @@ func NewConfig() Config {
 	}
 }
 
+func (c *Config) Validate() error {
+	if !slices.Contains(allIDProviders, IDProvider(c.IDP.Implementation)) {
+		return fmt.Errorf("invalid IDP implementation: %s, must be one of %v", c.IDP.Implementation, allIDProviders)
+	}
+
+	return nil
+}
+
 func (c *Config) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.FGA.Target, "fga-target", c.FGA.Target, "Set the OpenFGA API target")
 	fs.DurationVar(&c.FGA.StoreIDCacheTTL, "fga-store-id-cache-ttl", c.FGA.StoreIDCacheTTL, "TTL for the OpenFGA store ID cache (e.g. 5m, 1h)")
@@ -175,6 +206,7 @@ func (c *Config) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&c.HttpClientTimeoutSeconds, "http-client-timeout-seconds", c.HttpClientTimeoutSeconds, "Set HTTP client timeout in seconds")
 	fs.BoolVar(&c.SetDefaultPassword, "set-default-password", c.SetDefaultPassword, "Enable setting default password for identity provider users")
 	fs.BoolVar(&c.AllowMemberTuplesEnabled, "allow-member-tuples-enabled", c.AllowMemberTuplesEnabled, "Enable allow-member tuples management")
+	fs.StringVar(&c.IDP.Implementation, "idp-implementation", c.IDP.Implementation, fmt.Sprintf("Which IDP to use in Platform Mesh (one of %v)", allIDProviders))
 	fs.StringSliceVar(&c.IDP.RealmDenyList, "idp-realm-deny-list", c.IDP.RealmDenyList, "Comma-separated list of Keycloak realms to ignore")
 	fs.StringVar(&c.IDP.SMTPServer, "idp-smtp-server", c.IDP.SMTPServer, "Set Keycloak SMTP server host")
 	fs.IntVar(&c.IDP.SMTPPort, "idp-smtp-port", c.IDP.SMTPPort, "Set Keycloak SMTP server port")
@@ -189,6 +221,8 @@ func (c *Config) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&c.IDP.RegistrationAllowed, "idp-registration-allowed", c.IDP.RegistrationAllowed, "Enable Keycloak self-registration")
 	fs.StringVar(&c.Keycloak.BaseURL, "keycloak-base-url", c.Keycloak.BaseURL, "Set Keycloak base URL")
 	fs.StringVar(&c.Keycloak.ClientID, "keycloak-client-id", c.Keycloak.ClientID, "Set Keycloak client ID")
+	fs.StringVar(&c.Auth0.BaseURL, "auth0-base-url", c.Auth0.BaseURL, "Set Auth0 base URL")
+	fs.StringVar(&c.Auth0.ClientID, "auth0-client-id", c.Auth0.ClientID, "Set Auth0 client ID")
 	fs.BoolVar(&c.Initializer.WorkspaceInitializerEnabled, "initializer-workspace-enabled", c.Initializer.WorkspaceInitializerEnabled, "Enable workspace initialization")
 	fs.BoolVar(&c.Initializer.IDPEnabled, "initializer-idp-enabled", c.Initializer.IDPEnabled, "Enable IDP initialization")
 	fs.BoolVar(&c.Initializer.InviteEnabled, "initializer-invite-enabled", c.Initializer.InviteEnabled, "Enable invite initialization")

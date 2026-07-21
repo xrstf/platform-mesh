@@ -41,7 +41,7 @@ type AdminClient struct {
 	realm      string
 }
 
-func NewAdminClient(httpClient *http.Client, baseURL, realm string) *AdminClient {
+func NewAdminClient(httpClient *http.Client, baseURL, realm string, cfg RealmConfig) *AdminClient {
 	return &AdminClient{
 		httpClient: httpClient,
 		baseURL:    strings.TrimSuffix(baseURL, "/"),

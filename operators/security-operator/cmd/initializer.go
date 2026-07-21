@@ -49,7 +49,7 @@ var initializerCmd = &cobra.Command{
 	Use:   "initializer",
 	Short: "FGA initializer for the organization workspacetype",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		restCfg, err := getKubeconfigFromPath(initializerCfg.KCP.Kubeconfig)
+		restCfg, err := getKubeconfigFromPath(cfg.KCP.Kubeconfig)
 		if err != nil {
 			log.Error().Err(err).Msg("unable to get kcp kubeconfig")
 			os.Exit(1)
@@ -79,7 +79,7 @@ var initializerCmd = &cobra.Command{
 			mgrOpts.LeaderElectionConfig = inClusterCfg
 		}
 
-		provider, err := initializingworkspaces.New(restCfg, initializerCfg.WorkspaceTypeName,
+		provider, err := initializingworkspaces.New(restCfg, cfg.WorkspaceTypeName,
 			initializingworkspaces.Options{
 				Scheme: mgrOpts.Scheme,
 			},
@@ -107,14 +107,14 @@ var initializerCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if initializerCfg.IDP.AdditionalRedirectURLs == nil {
-			initializerCfg.IDP.AdditionalRedirectURLs = []string{}
+		if cfg.IDP.AdditionalRedirectURLs == nil {
+			cfg.IDP.AdditionalRedirectURLs = []string{}
 		}
 
 		kcpClientGetter := iclient.NewConfigSchemeKCPClientGetter(restCfg, scheme)
-		orgReconciler, err := controller.NewOrgLogicalClusterController(log, kcpClientGetter, initializerCfg, runtimeClient, mgr, controller.ControllerOptions{
+		orgReconciler, err := controller.NewOrgLogicalClusterController(log, kcpClientGetter, cfg, runtimeClient, mgr, controller.ControllerOptions{
 			Name:            "OrgLogicalClusterInitializer",
-			InitializerName: initializerCfg.InitializerName(),
+			InitializerName: cfg.InitializerName(),
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to create LogicalCluster initializer")
@@ -125,7 +125,7 @@ var initializerCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		conn, err := grpc.NewClient(initializerCfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(cfg.FGA.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Error().Err(err).Msg("unable to create grpc client")
 			return err
@@ -135,14 +135,14 @@ var initializerCmd = &cobra.Command{
 		storeIDGetter := fga.NewCachingStoreIDGetter(
 			cmd.Context(),
 			fgaClient,
-			initializerCfg.FGA.StoreIDCacheTTL,
+			cfg.FGA.StoreIDCacheTTL,
 			log,
 		)
 
-		alcReconciler, err := controller.NewAccountLogicalClusterController(log, initializerCfg, fgaClient, storeIDGetter, mgr, kcpClientGetter, controller.ControllerOptions{
+		alcReconciler, err := controller.NewAccountLogicalClusterController(log, cfg, fgaClient, storeIDGetter, mgr, kcpClientGetter, controller.ControllerOptions{
 			Name:            "AccountLogicalClusterInitializer",
-			InitializerName: initializerCfg.InitializerName(),
-			TerminatorName:  initializerCfg.TerminatorName(),
+			InitializerName: cfg.InitializerName(),
+			TerminatorName:  cfg.TerminatorName(),
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to create AccountLogicalCluster reconciler")

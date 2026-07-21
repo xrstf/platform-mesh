@@ -32,14 +32,10 @@ import (
 )
 
 var (
-	defaultCfg     *platformeshconfig.CommonServiceConfig
-	initializerCfg config.Config
-	terminatorCfg  config.Config
-	operatorCfg    config.Config
-	generatorCfg   config.Config
-	systemCfg      config.Config
-	log            *logger.Logger
-	setupLog       logr.Logger
+	defaultCfg *platformeshconfig.CommonServiceConfig
+	cfg        config.Config
+	log        *logger.Logger
+	setupLog   logr.Logger
 )
 
 var rootCmd = &cobra.Command{
@@ -55,22 +51,25 @@ func init() {
 	rootCmd.AddCommand(systemCmd)
 
 	defaultCfg = platformeshconfig.NewDefaultConfig()
-	operatorCfg = config.NewConfig()
-	generatorCfg = config.NewConfig()
-	initializerCfg = config.NewConfig()
-	terminatorCfg = config.NewConfig()
-	systemCfg = config.NewConfig()
+	cfg = config.NewConfig()
 	initContainerCfg = config.NewInitContainerConfig()
 
 	defaultCfg.AddFlags(rootCmd.PersistentFlags())
-	operatorCfg.AddFlags(operatorCmd.Flags())
-	generatorCfg.AddFlags(modelGeneratorCmd.Flags())
-	initializerCfg.AddFlags(initializerCmd.Flags())
-	terminatorCfg.AddFlags(terminatorCmd.Flags())
-	systemCfg.AddFlags(systemCmd.Flags())
+	cfg.AddFlags(operatorCmd.Flags())
+	cfg.AddFlags(modelGeneratorCmd.Flags())
+	cfg.AddFlags(initializerCmd.Flags())
+	cfg.AddFlags(terminatorCmd.Flags())
+	cfg.AddFlags(systemCmd.Flags())
 	initContainerCfg.AddFlags(initContainerCmd.Flags())
 
 	cobra.OnInitialize(initLog)
+
+	// TODO: Make this prettier
+	cobra.OnInitialize(func() {
+		if err := cfg.Validate(); err != nil {
+			panic(err)
+		}
+	})
 }
 
 func getKubeconfigFromPath(kubeconfigPath string) (*rest.Config, error) {
